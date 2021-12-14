@@ -13,6 +13,13 @@ CHARACTER_SCALING = 0.3
 TILE_SCALING = 0.5
 TILE_BIRD_SCALING = 0.2
 
+# Movement speed of player, in pixels per frame
+PLAYER_MOVEMENT_SPEED = 5
+
+# gravity
+GRAVITY = 1
+PLAYER_JUMP_SPEED = 20
+
 
 class MyGame(arcade.Window):
     """
@@ -29,6 +36,9 @@ class MyGame(arcade.Window):
 
         # Separate variable that holds the player sprite
         self.player_sprite = None
+
+        # Physics engines
+        self.physics_engine = None
 
         arcade.set_background_color(arcade.csscolor.CORNFLOWER_BLUE)
 
@@ -69,6 +79,10 @@ class MyGame(arcade.Window):
             bird.position = coordinate
             self.scene.add_sprite("Bird", bird)
 
+        self.physics_engine = arcade.PhysicsEnginePlatformer(
+            self.player_sprite, gravity_constant=GRAVITY, walls=self.scene["Walls"]
+        )
+
     def on_draw(self):
         """Render the screen."""
 
@@ -77,6 +91,31 @@ class MyGame(arcade.Window):
 
         # Draw our sprites
         self.scene.draw()
+
+    def on_key_press(self, key, modifiers):
+        """Called whenever a key is pressed."""
+
+        if key == arcade.key.UP:
+            if self.physics_engine.can_jump():
+                self.player_sprite.change_y = PLAYER_JUMP_SPEED
+        elif key == arcade.key.DOWN or key == arcade.key.S:
+            self.player_sprite.change_y = -PLAYER_MOVEMENT_SPEED
+
+    def on_key_release(self, key, modifiers):
+        """Called when the user releases a key."""
+
+        if key == arcade.key.UP:
+            self.player_sprite.change_y = 0
+        elif key == arcade.key.DOWN:
+            self.player_sprite.change_y = 0
+
+    def on_update(self, delta_time):
+        """Movement and game logic"""
+
+        # Move the player with the physics engine
+        self.physics_engine.update()
+
+        self.player_sprite.change_x = PLAYER_MOVEMENT_SPEED
 
 
 def main():
