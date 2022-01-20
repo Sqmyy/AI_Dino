@@ -43,6 +43,7 @@ class DinoGame(arcade.Window):
         self.learning_rate = 1
         self.discount_factor = 0.5
         self.qtable = {}
+        self.count = 0 #pour update la liste d'obstacle
         for i in range(200):
             self.qtable[i] = {}
             for a in ACTIONS:
@@ -152,11 +153,11 @@ class DinoGame(arcade.Window):
         # Check for collisions
         collisions = self.player_sprite.collides_with_list(self.obstacles_list)
         if len(collisions) == 0:
-            if self.obstacles_list[0].right < self.player_sprite.left:
-                del self.obstacles_list[0]
-        self.state_ia = self.obstacles_list[0].left - self.player_sprite.right
+            if self.obstacles_list[self.count].right < self.player_sprite.left:
+                self.count += 1
+        self.state_ia = self.obstacles_list[self.count].left - self.player_sprite.right
         # if next obstacles distance < 200 make an action
-        if self.state_ia <= 200:
+        if self.state_ia <= 20:
             action = self.best_action()
             self.jump_or_not(action)
             if len(collisions) > 0 and not DEBUG:
