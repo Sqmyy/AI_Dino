@@ -1,3 +1,5 @@
+import copy
+
 import arcade
 import pathlib
 from pyglet.gl import GL_NEAREST
@@ -10,7 +12,7 @@ REWARD_COLLISION = -10
 
 JUMP = 'J'
 NOTHING = 'N'
-ACTIONS = [JUMP, NOTHING]
+ACTIONS = [NOTHING, JUMP]
 
 DEBUG = False
 SCREEN_WIDTH = 800
@@ -40,16 +42,15 @@ class DinoGame(arcade.Window):
         # initialize qtable
         self.state_ia = 0
         self.score_ia = 0
-        self.learning_rate = 1
+        self.learning_rate = 0.2
         self.discount_factor = 0.5
         self.qtable = {}
-        self.count = 0 #pour update la liste d'obstacle
-        for i in range(200):
-            self.qtable[i] = {}
+        for i in range(0, 200, 20):
+            self.qtable[f"{i + 1}-{i + 20}"] = {}
             for a in ACTIONS:
-                self.qtable[i][a] = 0.0
+                self.qtable[f"{i + 1}-{i + 20}"][a] = 0.0
 
-        self.dino_state = DinoStates.IDLING
+        self.dino_state = DinoStates.RUNNING
         self.camera_sprites = arcade.Camera(SCREEN_WIDTH, SCREEN_HEIGHT)
         self.camera_gui = arcade.Camera(SCREEN_WIDTH, SCREEN_HEIGHT)
 
@@ -117,28 +118,59 @@ class DinoGame(arcade.Window):
         self.dino_state = DinoStates.JUMPING
         if self.physics_engine.can_jump():
             self.player_sprite.change_y = 6
+        self.dino_state = DinoStates.RUNNING
 
     def jump_or_not(self, action):
-        if action == JUMP:
+        if action == NOTHING:
+            pass
+        else:
             self.jump()
+
+    def find_key(self, number):
+        if 1 <= number <= 20:
+            return "1-20"
+        elif 21 <= number <= 40:
+            return "21-40"
+        elif 41 <= number <= 60:
+            return "41-60"
+        elif 61 <= number <= 80:
+            return "61-80"
+        elif 81 <= number <= 100:
+            return "81-100"
+        elif 101 <= number <= 120:
+            return "101-120"
+        elif 121 <= number <= 140:
+            return "121-140"
+        elif 141 <= number <= 160:
+            return "141-160"
+        elif 161 <= number <= 180:
+            return "161-180"
+        elif 181 <= number <= 200:
+            return "181-200"
 
     def best_action(self):
         best = None
         if self.state_ia < 0:
             return NOTHING
-        for a in self.qtable[self.state_ia]:
+        else:
+            key = self.find_key(self.state_ia)
+        for a in self.qtable[key]:
             if not best \
-                    or self.qtable[self.state_ia][a] > self.qtable[self.state_ia][best]:
+                    or self.qtable[key][a] > self.qtable[key][best]:
                 best = a
         return best
 
     def update_qtable(self, state_ia, action, reward):
-        maxQ = max(self.qtable[state_ia].values())
-        self.qtable[self.state][action] += self.learning_rate * \
-                                           (reward + self.discount_factor * maxQ - self.qtable[self.state][action])
-
-        self.state_ia = state_ia
-        self.score_ia += reward
+        if state_ia > 0:
+            key = self.find_key(state_ia)
+            maxQ = max(self.qtable[key].values())
+            print("valeur a ajouter    {}", self.learning_rate * \
+                  (reward + self.discount_factor * maxQ - self.qtable[key][action]))
+            self.qtable[key][action] += self.learning_rate * \
+                                        (reward + self.discount_factor * maxQ - self.qtable[key][action])
+            self.state_ia = state_ia
+            self.score_ia += reward
+        print(self.qtable)
 
     def on_update(self, delta_time):
         if self.game_state == GameStates.GAMEOVER:
@@ -153,20 +185,23 @@ class DinoGame(arcade.Window):
         # Check for collisions
         collisions = self.player_sprite.collides_with_list(self.obstacles_list)
         if len(collisions) == 0:
-            if self.obstacles_list[self.count].right < self.player_sprite.left:
-                self.count += 1
-        self.state_ia = self.obstacles_list[self.count].left - self.player_sprite.right
-        # if next obstacles distance < 200 make an action
-        if self.state_ia <= 20:
+            if self.obstacles_list[0].right < self.player_sprite.left:
+                self.obstacles_list.pop(0)
+        self.state_ia = self.obstacles_list[0].left - self.player_sprite.right
+        if self.state_ia <= 200:
             action = self.best_action()
+            print("voici mon action>>> {}", action)
             self.jump_or_not(action)
-            if len(collisions) > 0 and not DEBUG:
+            if len(collisions) > 0:
                 self.dino_state = DinoStates.CRASHING
                 self.game_state = GameStates.GAMEOVER
-
-            if self.dino_state == DinoStates.DUCKING:
-                self.player_sprite.texture = self.textures[f"dino-duck-{dino_frame}"]
-            else:
+            if self.dino_state == DinoStates.CRASHING or self.game_state == GameStates.GAMEOVER:
+                self.update_qtable(self.state_ia, action, REWARD_COLLISION)
+            elif self.dino_state == DinoStates.RUNNING:
+                if self.state_ia > 0:
+                    self.update_qtable(self.state_ia, action, REWARD_JUMP_FOR_NOTHING)
+                else:
+                    self.update_qtable(self.state_ia, action, REWARD_GOOD_JUMP)
                 self.player_sprite.texture = self.textures[f"dino-run-{dino_frame}"]
         self.player_sprite.change_x = PLAYER_SPEED
         self.camera_sprites.move((self.player_sprite.left - 30, 0))
@@ -206,7 +241,7 @@ class DinoGame(arcade.Window):
             self.setup()
             self.game_state == GameStates.GAMEOVER
             self.dino_state == DinoStates.RUNNING
-            self.update(1/80)
+            self.update(1 / 80)
 
 
 def main():
